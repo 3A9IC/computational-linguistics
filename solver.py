@@ -1,5 +1,5 @@
 import logging, nltk, re
-import utils, answers_parser
+import utils, answers_parser, pictures
 
 logger = logging.getLogger('solver')
 
@@ -23,18 +23,22 @@ def clear_stop_words(tokens):
     return [t for t in tokens if (t not in stop_words)]
 
 
-def get_most_freq_words(sentence, output_count=100, need_char=False, need_number=False):
-    clear_sentence = utils.clear_html_tags(sentence)
-    tokens = nltk.word_tokenize(clear_sentence)
-    tokens = clear_stop_words(tokens)
-    if need_number:
-        tokens = [w for w in tokens if w.isdigit()]
-    else:
-        tokens = utils.clear_not_alpha_tokens(tokens)
-    if need_char and not need_number:
-        tokens = [w for w in tokens if len(w) == 1]
-    freq_words = nltk.FreqDist(tokens)
-    return freq_words.most_common(output_count)
+def get_most_freq_words(sentence, output_count=100, need_char=False, need_number=False, need_figure=False):
+	clear_sentence = utils.clear_html_tags(sentence)
+	tokens = nltk.word_tokenize(clear_sentence)
+	tokens = clear_stop_words(tokens)
+	
+	if need_figure:
+		tokens = [w for w in tokens if w.isdigit()]
+	else:
+		if need_number:
+			tokens = [w for w in tokens if w.isdigit()]
+		else:
+			tokens = utils.clear_not_alpha_tokens(tokens)
+		if need_char and not need_number:
+			tokens = [w for w in tokens if len(w) == 1]
+	freq_words = nltk.FreqDist(tokens)
+	return freq_words.most_common(output_count)
 
 
 # heuristic for find count of dots in (. . .)
@@ -46,21 +50,27 @@ def get_possible_answer_len(question):
 
 
 def get_possible_answer(question):
-    possible_answer_len = get_possible_answer_len(question)
-    mail_ru_answers = '\n '.join(answers_parser.get_answers(question))
-    # logger.info('mail.ru answers: %s' % mail_ru_answers)
-    need_char = need_number = False
-    if possible_answer_len == 0:
-        question_lower = question.lower()
-        need_char = question_lower.find("букв") != -1 and question_lower.find("слово") == -1
-        need_number = question_lower.find("число") != -1 or question_lower.find("фигуру") != -1
-    freq_words = get_most_freq_words(mail_ru_answers, need_char=need_char, need_number=need_number)
-    # logger.info('freq words answer: %s' % freq_words)
-    if (possible_answer_len > 0):
-        for answer in freq_words:
-            if (len(answer[0]) == possible_answer_len):
-                # logger.info('heuristic: dots (%i)' % possible_answer_len)
-                return answer[0]
-    if (freq_words):
-        return freq_words[0][0]
-    return ''  # don't know :(...
+	possible_answer_len = get_possible_answer_len(question)
+	
+	need_char = need_number = need_figure = False
+	if possible_answer_len == 0:
+		question_lower = question.lower()
+		need_char = question_lower.find("букв") != -1 and question_lower.find("слово") == -1
+		#need_number = question_lower.find("число") != -1 or question_lower.find("фигуру") != -1
+		need_number = question_lower.find("число") != -1
+		need_figure = question_lower.find("фигур") != -1
+	mail_ru_answers = '\n '.join(answers_parser.get_answers(question, need_figure=need_figure))
+	# logger.info('mail.ru answers: %s' % mail_ru_answers)
+	
+
+	freq_words = get_most_freq_words(mail_ru_answers, need_char=need_char, need_number=need_number, need_figure=need_figure)
+	# logger.info('freq words answer: %s' % freq_words)
+	for answer in freq_words:
+	if (possible_answer_len > 0):
+		for answer in freq_words:
+			if (len(answer[0]) == possible_answer_len):
+				# logger.info('heuristic: dots (%i)' % possible_answer_len)
+				return answer[0]
+	if (freq_words):
+		return freq_words[0][0]
+	return '1'  # don't know :(...
